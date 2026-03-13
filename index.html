@@ -488,6 +488,8 @@
     <input class="add-input" id="addInput" type="text" placeholder="식당 이름 입력..." maxlength="15">
     <button class="add-btn" onclick="addRestaurant()">+</button>
   </div>
+
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -505,22 +507,49 @@ let isSpinning = false;
 let currentAngle = 0;
 let animFrameId = null;
 
+// ==============================
+// ✏️ 식당 목록 여기서 수정하세요!
+// ==============================
+const RESTAURANT_LIST = [
+  "제주둘레국수",
+  "정식당(한식뷔페)",
+  "선사한우마을(국밥)",
+  "용호동낙지",
+  "겐로쿠 우동",
+  "쌍둥이수육국밥",
+  "롤링김밥커피(김치찌게)",
+  "스마일칼국수(김밥)",
+  "소내장탕.갈비탕",
+  "황토불낙보쌈",
+  "공주식당",
+  "장인닭갈비"
+];
+// ==============================
+
 function load() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      restaurants = JSON.parse(stored);
-    } else {
-      restaurants = ['김밥천국','설렁탕','돼지국밥','짜장면','분식집'];
-    }
-  } catch(e) {
-    restaurants = ['김밥천국','설렁탕','돼지국밥','짜장면','분식집'];
-  }
+  restaurants = [...RESTAURANT_LIST];
   renderAll();
 }
 
 function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(restaurants)); } catch(e) {}
+  // 목록 변경 시 자동으로 아무것도 안 함 (exportJSON으로 수동 저장)
+}
+
+function exportJSON() {
+  const json = JSON.stringify(restaurants, null, 2);
+  navigator.clipboard.writeText(json)
+    .then(() => showToast('✅ 클립보드에 복사됐어요! restaurants.json에 붙여넣으세요'))
+    .catch(() => {
+      // 클립보드 실패 시 텍스트 영역으로 보여주기
+      const ta = document.createElement('textarea');
+      ta.value = json;
+      ta.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80vw;height:200px;z-index:9999;font-size:12px;padding:10px;border-radius:8px;border:1px solid #ff6b35;background:#1a1a2e;color:#f0ede8;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      showToast('✅ 복사됐어요! restaurants.json에 붙여넣으세요');
+      setTimeout(() => ta.remove(), 3000);
+    });
 }
 
 function getColor(i) {
