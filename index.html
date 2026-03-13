@@ -66,11 +66,13 @@
   .header h1 {
     font-family: 'Black Han Sans', sans-serif;
     font-size: 28px;
-    letter-spacing: 2px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--accent) 30%, var(--accent2) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    -webkit-text-stroke: 0px transparent;
+    filter: drop-shadow(0 0 8px rgba(255,107,53,0.4));
   }
 
   .header p {
@@ -142,14 +144,14 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 72px;
-    height: 72px;
+    width: 79px;
+    height: 79px;
     border-radius: 50%;
     background: var(--bg);
     border: 3px solid var(--accent);
     color: var(--accent);
     font-family: 'Black Han Sans', sans-serif;
-    font-size: 13px;
+    font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -413,25 +415,43 @@
   /* Confetti */
   .confetti-piece {
     position: fixed;
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    top: -10px;
-    animation: confetti-fall 2.5s ease-in forwards;
     pointer-events: none;
-    z-index: 50;
+    z-index: 9999;
+    border-radius: 2px;
+  }
+
+  @keyframes confetti-burst {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+    60%  { opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.4); opacity: 0; }
   }
 
   @keyframes confetti-fall {
-    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(var(--rot)); opacity: 0; }
+  }
+
+  .firework-ring {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    animation: ring-expand 0.6s ease-out forwards;
+  }
+
+  @keyframes ring-expand {
+    0%   { transform: translate(-50%,-50%) scale(0); opacity: 0.9; }
+    100% { transform: translate(-50%,-50%) scale(1); opacity: 0; }
   }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>🍱 점심 룰렛</h1>
+  <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+    <span style="font-size:26px; line-height:1;">🍱</span>
+    <h1>점심 룰렛</h1>
+  </div>
   <p>오늘 뭐 먹을까? 룰렛에게 맡겨봐!</p>
 </div>
 
@@ -698,21 +718,93 @@ function showToast(msg) {
 }
 
 function fireConfetti() {
-  const colors = ['#ff6b35','#ffd60a','#3a86ff','#06d6a0','#ff006e','#8338ec'];
-  for (let i = 0; i < 30; i++) {
-    const piece = document.createElement('div');
-    piece.className = 'confetti-piece';
-    piece.style.cssText = `
-      left: ${20 + Math.random() * 60}%;
-      background: ${colors[Math.floor(Math.random() * colors.length)]};
-      animation-delay: ${Math.random() * 0.5}s;
-      animation-duration: ${2 + Math.random() * 1}s;
-      width: ${6 + Math.random() * 6}px;
-      height: ${6 + Math.random() * 6}px;
-    `;
-    document.body.appendChild(piece);
-    setTimeout(() => piece.remove(), 3500);
+  const colors = ['#ff6b35','#ffd60a','#3a86ff','#06d6a0','#ff006e','#8338ec','#4cc9f0','#f72585','#ffbf69','#ffffff'];
+
+  function burst(cx, cy, count, delay) {
+    setTimeout(() => {
+      // Ring flash
+      const ring = document.createElement('div');
+      ring.className = 'firework-ring';
+      const size = 80 + Math.random() * 80;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      ring.style.cssText = `
+        left: ${cx}px; top: ${cy}px;
+        width: ${size}px; height: ${size}px;
+        border: 3px solid ${color};
+        animation-duration: 0.5s;
+      `;
+      document.body.appendChild(ring);
+      setTimeout(() => ring.remove(), 700);
+
+      // Particles
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'confetti-piece';
+        const angle = (Math.PI * 2 / count) * i + Math.random() * 0.4;
+        const dist = 80 + Math.random() * 120;
+        const tx = Math.cos(angle) * dist;
+        const ty = Math.sin(angle) * dist;
+        const w = 5 + Math.random() * 8;
+        const h = Math.random() > 0.4 ? w : w * 2.5;
+        const col = colors[Math.floor(Math.random() * colors.length)];
+        const rot = Math.random() * 1080 - 540;
+        p.style.cssText = `
+          left: ${cx}px; top: ${cy}px;
+          width: ${w}px; height: ${h}px;
+          background: ${col};
+          --tx: ${tx}px; --ty: ${ty}px; --rot: ${rot}deg;
+          animation: confetti-burst ${0.7 + Math.random() * 0.5}s cubic-bezier(0.15,0.5,0.5,1) forwards;
+          animation-delay: ${Math.random() * 0.05}s;
+        `;
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1500);
+      }
+    }, delay);
   }
+
+  function fallRain() {
+    // Rain from top
+    for (let i = 0; i < 60; i++) {
+      setTimeout(() => {
+        const p = document.createElement('div');
+        p.className = 'confetti-piece';
+        const w = 6 + Math.random() * 7;
+        const h = Math.random() > 0.4 ? w : w * 2.5;
+        const col = colors[Math.floor(Math.random() * colors.length)];
+        const rot = Math.random() * 1440 - 720;
+        p.style.cssText = `
+          left: ${Math.random() * 100}vw;
+          top: -10px;
+          width: ${w}px; height: ${h}px;
+          background: ${col};
+          --rot: ${rot}deg;
+          animation: confetti-fall ${2 + Math.random() * 1.5}s ease-in forwards;
+        `;
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 4000);
+      }, i * 40);
+    }
+  }
+
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+
+  // Multiple burst positions
+  const positions = [
+    [W * 0.5, H * 0.3, 20, 0],
+    [W * 0.2, H * 0.25, 16, 200],
+    [W * 0.8, H * 0.25, 16, 350],
+    [W * 0.3, H * 0.5, 14, 500],
+    [W * 0.7, H * 0.5, 14, 600],
+    [W * 0.5, H * 0.2, 18, 750],
+    [W * 0.15, H * 0.45, 12, 900],
+    [W * 0.85, H * 0.45, 12, 1000],
+    [W * 0.4, H * 0.3, 14, 1200],
+    [W * 0.6, H * 0.3, 14, 1300],
+  ];
+
+  positions.forEach(([x, y, n, d]) => burst(x, y, n, d));
+  fallRain();
 }
 
 // Enter key support
