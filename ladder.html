@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a1a0e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>사다리타기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#070e0a;--surface:#0f1f13;--surface2:#182a1c;
+  --green:#2ecc71;--green2:#27ae60;--gold:#f5c842;--red:#e8354a;
+  --text:#e8f5e9;--text2:#6b9470;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Nanum Gothic',sans-serif;touch-action:manipulation;}
+body{display:flex;flex-direction:column;align-items:center;min-height:100dvh;position:relative;overflow-x:hidden;overflow-y:auto;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 39px,rgba(46,204,113,.04) 39px,rgba(46,204,113,.04) 40px),repeating-linear-gradient(0deg,transparent 0,transparent 39px,rgba(46,204,113,.04) 39px,rgba(46,204,113,.04) 40px);pointer-events:none;z-index:0;}
+
+.header{width:100%;padding:14px 20px 2px;text-align:center;position:relative;z-index:10;flex-shrink:0;}
+.header h1{font-family:'Jua',cursive;font-size:28px;letter-spacing:4px;color:var(--green);text-shadow:0 0 20px rgba(46,204,113,.45);line-height:1;}
+.header p{font-size:11px;color:var(--text2);margin-top:2px;}
+
+.main{width:100%;display:flex;flex-direction:column;align-items:center;padding:6px 12px 16px;position:relative;z-index:10;gap:8px;}
+
+/* 가로 스크롤 래퍼 (인원 많을 때 가로로 스크롤) */
+.ladder-scroll{width:100%;max-width:620px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;flex-shrink:0;border-radius:12px;}
+.ladder-scroll::-webkit-scrollbar{height:3px;}
+.ladder-scroll::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:4px;}
+#ladderCanvas{display:block;background:rgba(15,31,19,.7);border:1px solid rgba(46,204,113,.15);border-radius:12px;}
+
+.controls{display:flex;gap:8px;width:100%;max-width:620px;flex-shrink:0;}
+.btn-start{flex:1;height:48px;background:linear-gradient(135deg,#2ecc71,#27ae60);border:none;border-radius:12px;color:#fff;font-family:'Jua',cursive;font-size:20px;letter-spacing:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 0 #1e8449,0 6px 18px rgba(46,204,113,.3);transform:translateY(0);transition:transform .1s,box-shadow .1s;-webkit-tap-highlight-color:transparent;position:relative;overflow:hidden;}
+.btn-start::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);animation:shine 2.5s infinite;}
+@keyframes shine{0%,100%{left:-100%}50%{left:150%}}
+.btn-start:active{transform:translateY(4px);box-shadow:0 0 0 #1e8449,0 2px 8px rgba(46,204,113,.2);}
+.btn-start.disabled{opacity:.5;pointer-events:none;}
+.btn-reset{width:48px;height:48px;background:var(--surface2);border:1px solid rgba(255,255,255,.08);border-radius:12px;color:var(--text2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:all .15s;}
+.btn-reset:active{transform:scale(.9);}
+
+.result-section{width:100%;max-width:620px;flex-shrink:0;min-height:46px;display:flex;align-items:center;justify-content:center;}
+.result-hint{font-size:12px;color:var(--text2);text-align:center;}
+.result-card{display:none;width:100%;background:var(--surface);border:1.5px solid rgba(46,204,113,.3);border-radius:14px;padding:10px 14px;animation:pop-in .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop-in{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+/* 결과를 2열 그리드 */
+.result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:5px;max-height:160px;overflow-y:auto;}
+.result-grid::-webkit-scrollbar{width:3px;}
+.result-grid::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:4px;}
+.result-row{display:flex;align-items:center;gap:5px;padding:5px 7px;border-radius:8px;background:rgba(46,204,113,.07);border:1px solid rgba(46,204,113,.1);}
+.r-name{font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48px;}
+.r-arrow{color:var(--text2);font-size:10px;flex-shrink:0;}
+.r-prize{font-family:'Jua',cursive;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+
+.input-panel{width:100%;max-width:620px;display:flex;gap:8px;flex-shrink:0;}
+.panel-half{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;}
+.panel-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1.5px;display:flex;align-items:center;justify-content:space-between;}
+.mini-badge{background:var(--surface2);color:var(--text2);font-size:10px;padding:1px 6px;border-radius:10px;flex-shrink:0;}
+.scroll-list{display:flex;flex-direction:column;gap:3px;max-height:130px;overflow-y:auto;padding-right:2px;}
+.scroll-list::-webkit-scrollbar{width:2px;}
+.scroll-list::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:4px;}
+.mini-item{display:flex;align-items:center;gap:5px;background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:7px;padding:4px 7px;animation:slideIn .2s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.mini-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.mini-num{font-size:10px;color:var(--text2);min-width:14px;flex-shrink:0;}
+.mini-text{flex:1;font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.mini-del{background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.mini-del:active{color:var(--red);}
+.mini-empty{text-align:center;padding:10px 4px;color:var(--text2);font-size:11px;}
+.mini-form{display:flex;gap:5px;}
+.mini-input{flex:1;background:var(--surface);border:1.5px solid rgba(255,255,255,.07);border-radius:8px;color:var(--text);font-family:'Nanum Gothic',sans-serif;font-size:12px;padding:7px 8px;outline:none;transition:border-color .2s;min-width:0;}
+.mini-input:focus{border-color:rgba(46,204,113,.4);}
+.mini-input::placeholder{color:var(--text2);}
+.mini-add{background:linear-gradient(135deg,var(--green),var(--green2));border:none;border-radius:8px;color:#fff;font-family:'Jua',cursive;font-size:17px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.mini-add:active{transform:scale(.9);}
+.divider{width:1px;background:rgba(46,204,113,.1);flex-shrink:0;margin:0 2px;}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid rgba(255,255,255,.1);color:var(--text);padding:8px 16px;border-radius:30px;font-size:12px;font-weight:700;transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:300;white-space:nowrap;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+.spark{position:fixed;pointer-events:none;z-index:500;border-radius:50%;animation:sfx var(--sd,1s) var(--se,ease-out) forwards;}
+@keyframes sfx{0%{transform:translate(0,0) scale(1) rotate(0);opacity:1}80%{opacity:1}100%{transform:translate(var(--sx),var(--sy)) scale(.1) rotate(var(--sr,0));opacity:0}}
+.burst-ring{position:fixed;border-radius:50%;pointer-events:none;z-index:499;animation:ring-out .6s ease-out forwards;}
+@keyframes ring-out{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+/* 당첨 폭죽: 로켓 */
+.jrocket{position:fixed;pointer-events:none;z-index:502;border-radius:50%;animation:jrocket-up var(--jd,.55s) cubic-bezier(.15,.8,.3,1) forwards;}
+@keyframes jrocket-up{0%{transform:translate(0,0) scale(1.2);opacity:1;}90%{opacity:1;}100%{transform:translate(var(--jx),var(--jy)) scale(0);opacity:0;}}
+/* 로켓 꼬리 */
+.jtail{position:fixed;pointer-events:none;z-index:501;border-radius:50%;animation:jtail-fade .35s ease-out forwards;}
+@keyframes jtail-fade{0%{opacity:.8;transform:scale(1);}100%{opacity:0;transform:scale(.05);}}
+/* 터짐 파티클 */
+.jboom{position:fixed;pointer-events:none;z-index:503;animation:jboom-fly var(--bd,.85s) cubic-bezier(.05,.7,.3,1) forwards;}
+@keyframes jboom-fly{0%{transform:translate(0,0) scale(1.3) rotate(0deg);opacity:1;}55%{opacity:1;}100%{transform:translate(var(--bx),var(--by)) scale(.1) rotate(var(--br,0deg));opacity:0;}}
+/* 당첨 텍스트 팡 */
+.jackpot-text{position:fixed;pointer-events:none;z-index:504;font-family:"Jua",cursive;font-weight:900;color:#f5c842;text-shadow:0 0 20px #f5c842,0 0 40px #ff6b35;animation:jackpot-pop .7s cubic-bezier(.34,1.56,.64,1) forwards;}
+@keyframes jackpot-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(0) rotate(-15deg);}60%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(3deg);}80%{transform:translate(-50%,-50%) scale(.95) rotate(-1deg);}100%{opacity:0;transform:translate(-50%,-50%) scale(1.1) rotate(0deg);}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🪜 사다리타기</h1>
+  <p>이름과 결과를 입력하고 START! (최대 20명)</p>
+</div>
+<div class="main">
+
+  <div class="ladder-scroll">
+    <canvas id="ladderCanvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <button class="btn-start" id="startBtn" onclick="startLadder()">▶ START</button>
+    <button class="btn-reset" onclick="resetLadder()" title="초기화">↺</button>
+  </div>
+
+  <div class="result-section">
+    <div class="result-hint" id="resultHint">START를 눌러 사다리를 타세요!</div>
+    <div class="result-card" id="resultCard">
+      <div class="result-grid" id="resultGrid"></div>
+    </div>
+  </div>
+
+  <div class="input-panel">
+    <div class="panel-half">
+      <div class="panel-label">
+        <span>👤 이름</span>
+        <span class="mini-badge" id="nameCount">0/20</span>
+      </div>
+      <div class="scroll-list" id="nameList">
+        <div class="mini-empty">이름을 추가하세요</div>
+      </div>
+      <div class="mini-form">
+        <input class="mini-input" id="nameInput" type="text" placeholder="이름 입력..." maxlength="8">
+        <button class="mini-add" onclick="addName()">+</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="panel-half">
+      <div class="panel-label">
+        <span>🎯 결과</span>
+        <span class="mini-badge" id="prizeCount">0/20</span>
+      </div>
+      <div class="scroll-list" id="prizeList">
+        <div class="mini-empty">결과를 추가하세요</div>
+      </div>
+      <div class="mini-form">
+        <input class="mini-input" id="prizeInput" type="text" placeholder="결과 입력..." maxlength="8">
+        <button class="mini-add" onclick="addPrize()">+</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const MAX = 20;
+const NAME_COLORS = [
+  '#2ecc71','#3a86ff','#f5c842','#e8354a','#9b59b6',
+  '#ff914d','#e91e8c','#00bcd4','#ff5722','#a7c957',
+  '#f06292','#4dd0e1','#aed581','#ffb74d','#ba68c8',
+  '#4fc3f7','#81c784','#ff8a65','#90caf9','#ce93d8'
+];
+const FW = ['#2ecc71','#f5c842','#3a86ff','#e8354a','#ff914d','#9b59b6','#fff','#00bcd4','#ff4081','#a8e063'];
+
+let names = [], prizes = [];
+let ladder = null;
+let isRunning = false;
+
+// 1~7명 순차 모드용
+let stepIdx       = 0;    // 현재 몇 번째 사람을 태우는 중 (0-based)
+let allPaths      = [];   // 전체 경로 목록
+let completedPaths= [];   // 이미 완료된 경로들 (흐리게 표시)
+let stepResults   = [];   // 순차 결과 누적
+let usePrizesGlobal = []; // 섞인 결과 배열 보관
+
+const canvas = document.getElementById('ladderCanvas');
+const ctx    = canvas.getContext('2d');
+
+/* ─── 인원수 → 레이아웃 파라미터 계산 ─── */
+function getLayout(n) {
+  // 컬럼 최소 너비: 인원 많을수록 좁게
+  const colW     = n <= 6  ? 60 : n <= 8  ? 52 : n <= 10 ? 46 :
+                   n <= 12 ? 40 : n <= 15 ? 35 : n <= 18 ? 31 : 28;
+  const PAD_H    = 18;
+  const PAD_TOP  = n <= 10 ? 40 : 36;
+  const PAD_BOT  = n <= 10 ? 40 : 36;
+  const labelR   = n <= 8  ? 15 : n <= 12 ? 13 : n <= 16 ? 11 : 10;
+  const fontSize = n <= 8  ? 11 : n <= 12 ? 10 : 9;
+  const maxChars = n <= 8  ? 4  : n <= 14 ? 3  : 2;
+  const ROWS     = n <= 6  ? 12 : n <= 10 ? 14 : n <= 14 ? 16 : 18;
+  const H        = n <= 8  ? 280 : n <= 12 ? 300 : 320;
+
+  // 캔버스 너비: 컬럼 수 × colW + 양쪽 패딩, 스크롤 영역 기준으로 최소값도 맞춤
+  const scrollW  = document.querySelector('.ladder-scroll').clientWidth || 320;
+  const neededW  = PAD_H * 2 + colW * (n - 1) + labelR * 2;
+  const W        = Math.max(scrollW, neededW);
+
+  return { colW, PAD_H, PAD_TOP, PAD_BOT, labelR, fontSize, maxChars, ROWS, H, W };
+}
+
+/* ─── 좌표 변환 ─── */
+function getColX(col, lay) {
+  const usable = lay.W - lay.PAD_H * 2;
+  return lay.PAD_H + (usable / (ladder.n - 1)) * col;
+}
+function getRowY(row, lay) {
+  const usable = lay.H - lay.PAD_TOP - lay.PAD_BOT;
+  return lay.PAD_TOP + (usable / lay.ROWS) * row;
+}
+
+/* ─── 라벨 텍스트 줄임 ─── */
+function clip(str, max) {
+  return str.length > max ? str.slice(0, max) + (max >= 3 ? '…' : '') : str;
+}
+
+/* ─── 캔버스 리사이즈 ─── */
+function resizeCanvas() {
+  const n   = Math.max(names.length, 2);
+  const lay = getLayout(n);
+  canvas.width  = lay.W;
+  canvas.height = lay.H;
+  if (ladder) drawLadder(null);
+  else        drawEmpty();
+}
+window.addEventListener('resize', () => { if (!isRunning) resizeCanvas(); });
+
+/* ─── 빈 화면 ─── */
+function drawEmpty() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(46,204,113,.15)';
+  ctx.font = 'bold 12px Nanum Gothic';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('이름과 결과를 추가하면 사다리가 생성됩니다', canvas.width / 2, canvas.height / 2);
+}
+
+/* ─── 사다리 생성 ─── */
+function generateLadder(n) {
+  const lay  = getLayout(n);
+  const ROWS = lay.ROWS;
+  const rungs = Array.from({ length: ROWS }, () => new Array(n - 1).fill(false));
+
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < n - 1; col++) {
+      if (col > 0 && rungs[row][col - 1]) continue;
+      if (Math.random() < 0.42) rungs[row][col] = true;
+    }
+  }
+  return { n, ROWS, rungs, lay };
+}
+
+/* ─── 경로 추적 ─── */
+function tracePath(lad, startCol) {
+  const { n, ROWS, rungs } = lad;
+  let col = startCol;
+  const path = [{ row: -1, col }];
+  for (let row = 0; row < ROWS; row++) {
+    if      (col < n - 1 && rungs[row][col])      col++;
+    else if (col > 0     && rungs[row][col - 1])  col--;
+    path.push({ row, col });
+  }
+  return path;
+}
+
+/* ─── 사다리 그리기 ─── */
+function drawLadder(activePaths) {
+  const { n, ROWS, rungs, lay } = ladder;
+  const W = lay.W, H = lay.H;
+  ctx.clearRect(0, 0, W, H);
+
+  /* 세로줄 */
+  for (let col = 0; col < n; col++) {
+    const x = getColX(col, lay);
+    ctx.beginPath();
+    ctx.moveTo(x, lay.PAD_TOP);
+    ctx.lineTo(x, H - lay.PAD_BOT);
+    ctx.strokeStyle = 'rgba(46,204,113,.28)';
+    ctx.lineWidth   = n <= 10 ? 2.2 : 1.8;
+    ctx.stroke();
+  }
+
+  /* 가로줄 */
+  for (let row = 0; row < ROWS; row++) {
+    const y = getRowY(row + 0.5, lay);
+    for (let col = 0; col < n - 1; col++) {
+      if (!rungs[row][col]) continue;
+      ctx.beginPath();
+      ctx.moveTo(getColX(col,     lay), y);
+      ctx.lineTo(getColX(col + 1, lay), y);
+      ctx.strokeStyle = 'rgba(46,204,113,.32)';
+      ctx.lineWidth   = n <= 10 ? 2 : 1.6;
+      ctx.stroke();
+    }
+  }
+
+  /* 경로 하이라이트 */
+  if (activePaths) {
+    const pathLW = n <= 8 ? 3.5 : n <= 14 ? 2.8 : 2.2;
+    const dotR   = n <= 10 ? 5  : n <= 15 ? 4   : 3;
+
+    activePaths.forEach(({ path, color, progress }) => {
+      const total = path.length - 1;
+      const steps = Math.floor(progress * total);
+      const frac  = progress * total - steps;
+
+      /* 선 그리기 */
+      ctx.beginPath();
+      for (let i = 0; i <= steps && i < path.length; i++) {
+        const pt = path[i];
+        const x  = getColX(pt.col, lay);
+        const y  = pt.row < 0 ? lay.PAD_TOP : getRowY(pt.row + 0.5, lay);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      if (steps < total) {
+        const c = path[steps], nx = path[steps + 1];
+        const cx2 = getColX(c.col,  lay), nxX = getColX(nx.col, lay);
+        const cy2 = c.row  < 0 ? lay.PAD_TOP : getRowY(c.row  + 0.5, lay);
+        const nyY = nx.row < 0 ? lay.PAD_TOP : getRowY(nx.row + 0.5, lay);
+        ctx.lineTo(cx2 + (nxX - cx2) * frac, cy2 + (nyY - cy2) * frac);
+      }
+      ctx.strokeStyle = color; ctx.lineWidth = pathLW;
+      ctx.shadowColor = color; ctx.shadowBlur = 7;
+      ctx.stroke();       ctx.shadowBlur = 0;
+
+      /* 이동 점 */
+      if (progress > 0) {
+        const idx  = Math.min(steps, path.length - 1);
+        const nIdx = Math.min(idx + 1, path.length - 1);
+        const c  = path[idx], nx = path[nIdx];
+        const cx2 = getColX(c.col,  lay) + (getColX(nx.col, lay) - getColX(c.col, lay))  * Math.min(frac, 1);
+        const cy2 = (c.row  < 0 ? lay.PAD_TOP : getRowY(c.row  + 0.5, lay)) +
+                   ((nx.row < 0 ? lay.PAD_TOP : getRowY(nx.row + 0.5, lay)) -
+                    (c.row  < 0 ? lay.PAD_TOP : getRowY(c.row  + 0.5, lay))) * Math.min(frac, 1);
+        ctx.beginPath(); ctx.arc(cx2, cy2, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.shadowColor = color; ctx.shadowBlur = 12;
+        ctx.fill();             ctx.shadowBlur = 0;
+      }
+    });
+  }
+
+  /* 상단 이름 라벨 */
+  const endColMap = {};
+  if (activePaths) {
+    activePaths.forEach(({ path, color, progress }) => {
+      if (progress >= 1) endColMap[path[path.length - 1].col] = color;
+    });
+  }
+
+  for (let col = 0; col < n; col++) {
+    const x     = getColX(col, lay);
+    const y     = lay.PAD_TOP - lay.labelR - 2;
+    const color = NAME_COLORS[col % NAME_COLORS.length];
+    const label = clip(names[col] || '?', lay.maxChars);
+
+    ctx.beginPath(); ctx.arc(x, y, lay.labelR, 0, Math.PI * 2);
+    ctx.fillStyle   = color + '2e'; ctx.fill();
+    ctx.strokeStyle = color + '99'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.fillStyle   = color;
+    ctx.font        = `bold ${lay.fontSize}px Nanum Gothic`;
+    ctx.textAlign   = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  }
+
+  /* 하단 결과 라벨 */
+  for (let col = 0; col < n; col++) {
+    const x      = getColX(col, lay);
+    const y      = H - lay.PAD_BOT + lay.labelR + 2;
+    const hColor = endColMap[col] || null;
+    const label  = clip(prizes[col] || '?', lay.maxChars);
+
+    ctx.beginPath(); ctx.arc(x, y, lay.labelR, 0, Math.PI * 2);
+    if (hColor) {
+      ctx.fillStyle = hColor + '44'; ctx.fill();
+      ctx.strokeStyle = hColor; ctx.lineWidth = 1.8; ctx.stroke();
+      ctx.fillStyle = hColor;
+    } else {
+      ctx.fillStyle = 'rgba(46,204,113,.1)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(46,204,113,.28)'; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.fillStyle = 'rgba(46,204,113,.55)';
+    }
+    ctx.font = `bold ${lay.fontSize}px Nanum Gothic`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  }
+}
+
+/* ─── 버튼 텍스트 업데이트 ─── */
+function updateBtnLabel(n, step) {
+  const btn = document.getElementById('startBtn');
+  if (n <= 7) {
+    // step: 0-based, 아직 안 탄 첫 번째
+    if (step === 0) {
+      btn.innerHTML = `▶ 1번 시작`;
+    } else {
+      btn.innerHTML = `▶ ${step + 1}번 시작`;
+    }
+  } else {
+    btn.innerHTML = '▶ 시작하기';
+  }
+}
+
+/* ─── START ─── */
+function startLadder() {
+  if (isRunning) return;
+  const n = Math.min(names.length, prizes.length);
+  if (n < 2) { showToast('이름과 결과를 각각 2개 이상 입력하세요!'); return; }
+
+  if (n <= 7) {
+    // ── 순차 모드 (1~7명) ──
+    if (stepIdx === 0) {
+      // 첫 번째 클릭: 사다리 새로 생성, 결과 섞기
+      const useNames  = names.slice(0, n);
+      const usePrizes = [...prizes.slice(0, n)];
+      for (let i = usePrizes.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [usePrizes[i], usePrizes[j]] = [usePrizes[j], usePrizes[i]];
+      }
+      prizes = usePrizes;
+      usePrizesGlobal = usePrizes;
+
+      ladder = generateLadder(n);
+      const lay = ladder.lay;
+      canvas.width  = lay.W;
+      canvas.height = lay.H;
+
+      allPaths = useNames.map((name, col) => ({
+        name, col,
+        color:    NAME_COLORS[col % NAME_COLORS.length],
+        path:     tracePath(ladder, col),
+        progress: 0
+      }));
+      completedPaths = [];
+      stepResults    = [];
+
+      document.getElementById('resultCard').style.display = 'none';
+      document.getElementById('resultHint').style.display = 'block';
+    }
+
+    // 현재 stepIdx번째 사람 애니메이션
+    const currentPath = allPaths[stepIdx];
+    isRunning = true;
+    document.getElementById('startBtn').classList.add('disabled');
+    document.getElementById('resultHint').textContent = `🪜 ${currentPath.name} 사다리 타는 중...`;
+
+    runOneStep(currentPath, n);
+
+  } else {
+    // ── 전체 동시 모드 (8~20명) ──
+    const useNames  = names.slice(0, n);
+    const usePrizes = [...prizes.slice(0, n)];
+    for (let i = usePrizes.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [usePrizes[i], usePrizes[j]] = [usePrizes[j], usePrizes[i]];
+    }
+    prizes = usePrizes;
+
+    isRunning = true;
+    document.getElementById('startBtn').classList.add('disabled');
+    document.getElementById('resultCard').style.display = 'none';
+    document.getElementById('resultHint').style.display = 'block';
+    document.getElementById('resultHint').textContent   = '🪜 사다리 타는 중...';
+
+    ladder = generateLadder(n);
+    const lay = ladder.lay;
+    canvas.width  = lay.W;
+    canvas.height = lay.H;
+
+    const paths = useNames.map((name, col) => ({
+      name, col,
+      color:    NAME_COLORS[col % NAME_COLORS.length],
+      path:     tracePath(ladder, col),
+      progress: 0
+    }));
+
+    const DUR = n <= 14 ? 2700 : 3200;
+    const t0  = performance.now();
+
+    (function animate(now) {
+      const raw   = Math.min((now - t0) / DUR, 1);
+      const eased = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+      paths.forEach(p => { p.progress = eased; });
+      drawLadder(paths);
+      if (raw < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        paths.forEach(p => { p.progress = 1; });
+        drawLadder(paths);
+        onDone(paths, usePrizes);
+      }
+    })(performance.now());
+  }
+}
+
+/* ─── 순차 모드: 한 명씩 타기 ─── */
+function runOneStep(currentPath, n) {
+  currentPath.progress = 0;
+
+  // 완료된 경로 + 현재 경로 합쳐서 그리기
+  // 완료된 건 투명도 낮게 표현
+  const DUR = 2000;
+  const t0  = performance.now();
+
+  (function animate(now) {
+    const raw   = Math.min((now - t0) / DUR, 1);
+    const eased = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+    currentPath.progress = eased;
+
+    // 완료된 경로(흐리게) + 현재 경로(밝게) 합쳐서 그리기
+    const renderPaths = [
+      ...completedPaths.map(p => ({ ...p, dim: true })),
+      { ...currentPath, dim: false }
+    ];
+    drawLadderStep(renderPaths);
+
+    if (raw < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      currentPath.progress = 1;
+      // 결과 기록
+      const endCol = currentPath.path[currentPath.path.length - 1].col;
+      const prize  = usePrizesGlobal[endCol];
+      stepResults.push({
+        name:  currentPath.name,
+        color: currentPath.color,
+        prize
+      });
+      completedPaths.push({ ...currentPath });
+
+      // 결과 카드 업데이트 (누적)
+      showStepResults();
+
+      // "당첨" 텍스트 감지 → 화려한 폭죽
+      if (prize.includes('당첨')) {
+        // 해당 하단 라벨 위치 계산해서 폭죽 발사
+        const rect  = canvas.getBoundingClientRect();
+        const lay   = ladder.lay;
+        const scaleX = rect.width  / canvas.width;
+        const scaleY = rect.height / canvas.height;
+        const lx = rect.left + getColX(endCol, lay) * scaleX;
+        const ly = rect.top  + (lay.H - lay.PAD_BOT + lay.labelR + 2) * scaleY;
+        setTimeout(() => jackpotFireworks(lx, ly, currentPath.color), 80);
+      }
+
+      stepIdx++;
+      isRunning = false;
+      document.getElementById('startBtn').classList.remove('disabled');
+
+      if (stepIdx >= n) {
+        // 모두 완료
+        stepIdx = 0;
+        allPaths = []; completedPaths = []; stepResults = []; usePrizesGlobal = [];
+
+        // 폭죽
+        const rect = canvas.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        fireworks(cx, cy, 32); bigBurst(cx, cy);
+        setTimeout(() => rainConfetti(), 100);
+        setTimeout(() => { fireworks(rect.left+30, rect.top+50, 18); fireworks(rect.right-30, rect.top+50, 18); }, 220);
+        setTimeout(() => { fireworks(window.innerWidth*.12, window.innerHeight*.4, 16); fireworks(window.innerWidth*.88, window.innerHeight*.4, 16); bigBurst(window.innerWidth*.5, window.innerHeight*.28); }, 440);
+        setTimeout(() => rainConfetti(), 650);
+
+        document.getElementById('startBtn').innerHTML = '↺ 다시하기';
+        document.getElementById('resultHint').style.display = 'none';
+        document.getElementById('resultCard').style.display = 'block';
+      } else {
+        document.getElementById('resultHint').textContent = `✅ ${currentPath.name} 완료! 다음 차례를 시작하세요.`;
+        updateBtnLabel(n, stepIdx);
+      }
+    }
+  })(performance.now());
+}
+
+/* 누적 결과 카드 표시 */
+function showStepResults() {
+  const card = document.getElementById('resultCard');
+  document.getElementById('resultGrid').innerHTML = stepResults.map(r => `
+    <div class="result-row">
+      <span class="r-name" style="color:${r.color}">${r.name}</span>
+      <span class="r-arrow">→</span>
+      <span class="r-prize" style="color:${r.color}">${r.prize}</span>
+    </div>`).join('');
+  card.style.display = 'block';
+  document.getElementById('resultHint').style.display = 'none';
+}
+
+/* ─── 순차 모드 전용 그리기: dim 옵션 지원 ─── */
+function drawLadderStep(renderPaths) {
+  const { n, ROWS, rungs, lay } = ladder;
+  const W = lay.W, H = lay.H;
+  ctx.clearRect(0, 0, W, H);
+
+  /* 세로줄 */
+  for (let col = 0; col < n; col++) {
+    const x = getColX(col, lay);
+    ctx.beginPath();
+    ctx.moveTo(x, lay.PAD_TOP);
+    ctx.lineTo(x, H - lay.PAD_BOT);
+    ctx.strokeStyle = 'rgba(46,204,113,.28)';
+    ctx.lineWidth   = n <= 10 ? 2.2 : 1.8;
+    ctx.stroke();
+  }
+
+  /* 가로줄 */
+  for (let row = 0; row < ROWS; row++) {
+    const y = getRowY(row + 0.5, lay);
+    for (let col = 0; col < n - 1; col++) {
+      if (!rungs[row][col]) continue;
+      ctx.beginPath();
+      ctx.moveTo(getColX(col, lay), y);
+      ctx.lineTo(getColX(col + 1, lay), y);
+      ctx.strokeStyle = 'rgba(46,204,113,.32)';
+      ctx.lineWidth   = n <= 10 ? 2 : 1.6;
+      ctx.stroke();
+    }
+  }
+
+  /* 경로 하이라이트 */
+  const pathLW = n <= 8 ? 3.5 : 2.8;
+  const dotR   = 5;
+
+  renderPaths.forEach(({ path, color, progress, dim }) => {
+    const alpha  = dim ? 0.35 : 1.0;
+    const total  = path.length - 1;
+    const steps  = Math.floor(progress * total);
+    const frac   = progress * total - steps;
+
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    for (let i = 0; i <= steps && i < path.length; i++) {
+      const pt = path[i];
+      const x  = getColX(pt.col, lay);
+      const y  = pt.row < 0 ? lay.PAD_TOP : getRowY(pt.row + 0.5, lay);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    if (steps < total) {
+      const c = path[steps], nx = path[steps + 1];
+      const cx2 = getColX(c.col, lay), nxX = getColX(nx.col, lay);
+      const cy2 = c.row  < 0 ? lay.PAD_TOP : getRowY(c.row  + 0.5, lay);
+      const nyY = nx.row < 0 ? lay.PAD_TOP : getRowY(nx.row + 0.5, lay);
+      ctx.lineTo(cx2 + (nxX - cx2) * frac, cy2 + (nyY - cy2) * frac);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = pathLW;
+    ctx.shadowColor = color; ctx.shadowBlur = dim ? 3 : 8;
+    ctx.stroke();             ctx.shadowBlur = 0;
+
+    if (!dim && progress > 0) {
+      const idx  = Math.min(steps, path.length - 1);
+      const nIdx = Math.min(idx + 1, path.length - 1);
+      const c = path[idx], nx = path[nIdx];
+      const cx2 = getColX(c.col, lay) + (getColX(nx.col, lay) - getColX(c.col, lay)) * Math.min(frac, 1);
+      const cy2 = (c.row < 0 ? lay.PAD_TOP : getRowY(c.row + 0.5, lay)) +
+                 ((nx.row < 0 ? lay.PAD_TOP : getRowY(nx.row + 0.5, lay)) -
+                  (c.row  < 0 ? lay.PAD_TOP : getRowY(c.row  + 0.5, lay))) * Math.min(frac, 1);
+      ctx.beginPath(); ctx.arc(cx2, cy2, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowColor = color; ctx.shadowBlur = 12;
+      ctx.fill();             ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1.0;
+  });
+
+  /* 상단 이름 라벨 */
+  const endColMap = {};
+  renderPaths.forEach(({ path, color, progress }) => {
+    if (progress >= 1) endColMap[path[path.length - 1].col] = color;
+  });
+
+  for (let col = 0; col < n; col++) {
+    const x     = getColX(col, lay);
+    const y     = lay.PAD_TOP - lay.labelR - 2;
+    const color = NAME_COLORS[col % NAME_COLORS.length];
+    const label = clip(names[col] || '?', lay.maxChars);
+
+    ctx.beginPath(); ctx.arc(x, y, lay.labelR, 0, Math.PI * 2);
+    ctx.fillStyle   = color + '2e'; ctx.fill();
+    ctx.strokeStyle = color + '99'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.fillStyle   = color;
+    ctx.font        = `bold ${lay.fontSize}px Nanum Gothic`;
+    ctx.textAlign   = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  }
+
+  /* 하단 결과 라벨 */
+  for (let col = 0; col < n; col++) {
+    const x      = getColX(col, lay);
+    const y      = H - lay.PAD_BOT + lay.labelR + 2;
+    const hColor = endColMap[col] || null;
+    const label  = clip(prizes[col] || '?', lay.maxChars);
+
+    ctx.beginPath(); ctx.arc(x, y, lay.labelR, 0, Math.PI * 2);
+    if (hColor) {
+      ctx.fillStyle = hColor + '44'; ctx.fill();
+      ctx.strokeStyle = hColor; ctx.lineWidth = 1.8; ctx.stroke();
+      ctx.fillStyle = hColor;
+    } else {
+      ctx.fillStyle = 'rgba(46,204,113,.1)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(46,204,113,.28)'; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.fillStyle = 'rgba(46,204,113,.55)';
+    }
+    ctx.font = `bold ${lay.fontSize}px Nanum Gothic`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  }
+}
+
+function onDone(allPaths, usePrizes) {
+  const results = allPaths.map(({ name, path, color }) => ({
+    name, color, prize: usePrizes[path[path.length - 1].col]
+  }));
+
+  const rect = canvas.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+
+  fireworks(cx, cy, 32); bigBurst(cx, cy);
+  setTimeout(() => rainConfetti(), 100);
+  setTimeout(() => { fireworks(rect.left + 30, rect.top + 50, 18); fireworks(rect.right - 30, rect.top + 50, 18); }, 220);
+  setTimeout(() => { fireworks(window.innerWidth*.12, window.innerHeight*.4, 16); fireworks(window.innerWidth*.88, window.innerHeight*.4, 16); bigBurst(window.innerWidth*.5, window.innerHeight*.28); }, 440);
+  setTimeout(() => rainConfetti(), 650);
+
+  setTimeout(() => {
+    document.getElementById('resultHint').style.display = 'none';
+    const card = document.getElementById('resultCard');
+    document.getElementById('resultGrid').innerHTML = results.map(r => `
+      <div class="result-row">
+        <span class="r-name" style="color:${r.color}">${r.name}</span>
+        <span class="r-arrow">→</span>
+        <span class="r-prize" style="color:${r.color}">${r.prize}</span>
+      </div>`).join('');
+    card.style.display = 'block';
+    isRunning = false;
+    document.getElementById('startBtn').classList.remove('disabled');
+    document.getElementById('startBtn').innerHTML = '▶ 시작하기';
+  }, 280);
+}
+
+function resetLadder() {
+  if (isRunning) return;
+  ladder = null;
+  stepIdx = 0;
+  allPaths = []; completedPaths = []; stepResults = []; usePrizesGlobal = [];
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('resultHint').style.display = 'block';
+  document.getElementById('resultHint').textContent   = 'START를 눌러 사다리를 타세요!';
+  const n = Math.min(names.length, prizes.length);
+  updateBtnLabel(n, 0);
+  resizeCanvas();
+}
+
+/* ─── 폭죽 ─── */
+function fireworks(cx, cy, count = 24) {
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div'); p.className = 'spark';
+    const a = (Math.PI * 2 / count) * i + Math.random() * .3;
+    const d = 50 + Math.random() * 100, sz = 4 + Math.random() * 7;
+    const col = FW[Math.floor(Math.random() * FW.length)], dur = .5 + Math.random() * .5;
+    p.style.cssText = `left:${cx-sz/2}px;top:${cy-sz/2}px;width:${sz}px;height:${sz}px;background:${col};--sx:${Math.cos(a)*d}px;--sy:${Math.sin(a)*d}px;--sd:${dur}s;--se:cubic-bezier(.2,.8,.5,1);--sr:${Math.random()*720-360}deg;animation-delay:${Math.random()*.06}s;`;
+    document.body.appendChild(p); setTimeout(() => p.remove(), (dur + .15) * 1000);
+  }
+}
+function bigBurst(cx, cy) {
+  [65, 130, 195].forEach((sz, i) => {
+    const ring = document.createElement('div'); ring.className = 'burst-ring';
+    ring.style.cssText = `left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;border:3px solid ${FW[i*4%FW.length]};animation-duration:${.5+i*.1}s;animation-delay:${i*.07}s;`;
+    document.body.appendChild(ring); setTimeout(() => ring.remove(), 900);
+  });
+}
+function rainConfetti() {
+  for (let i = 0; i < 80; i++) {
+    setTimeout(() => {
+      const p = document.createElement('div'); p.className = 'spark';
+      const w = 5 + Math.random() * 7, h = Math.random() > .4 ? w : w * 2.5;
+      const col = FW[Math.floor(Math.random() * FW.length)];
+      p.style.cssText = `left:${Math.random()*100}vw;top:-12px;width:${w}px;height:${h}px;border-radius:${Math.random()>.5?'50%':'2px'};background:${col};--sx:${(Math.random()-.5)*80}px;--sy:${window.innerHeight+40}px;--sd:${1.5+Math.random()*1.5}s;--se:ease-in;--sr:${Math.random()*1080-540}deg;animation-delay:${Math.random()*.22}s;`;
+      document.body.appendChild(p); setTimeout(() => p.remove(), 3500);
+    }, i * 16);
+  }
+}
+
+/* ─── 당첨 폭죽: 아래→위 로켓 3연발 후 팡!팡!팡 폭발 ─── */
+function jackpotFireworks(fromX, fromY, accentColor) {
+  const W = window.innerWidth;
+  const COLORS_J = [accentColor, '#f5c842', '#ff4081', '#3a86ff', '#2ecc71', '#ff914d', '#ffffff', '#e8354a'];
+
+  // 3발 로켓 (왼쪽, 중앙, 오른쪽) 순차 발사
+  const shots = [
+    { fx: fromX - 40, tx: fromX - 60,  ty: fromY - 260, delay: 0   },
+    { fx: fromX,      tx: fromX,        ty: fromY - 300, delay: 130 },
+    { fx: fromX + 40, tx: fromX + 60,  ty: fromY - 260, delay: 260 },
+  ];
+
+  shots.forEach(({ fx, tx, ty, delay }) => {
+    const col = COLORS_J[Math.floor(Math.random() * COLORS_J.length)];
+    launchJRocket(fx, fromY, tx, ty, col, delay);
+  });
+
+  // 전체 완료 후 추가 폭발
+  setTimeout(() => {
+    fireworks(fromX, fromY - 290, 28);
+    bigBurst(fromX, fromY - 280);
+  }, 700);
+  setTimeout(() => {
+    fireworks(fromX - 55, fromY - 250, 20);
+    fireworks(fromX + 55, fromY - 250, 20);
+  }, 900);
+
+  // 팡! 텍스트
+  ['팡!', '팡!', '팡!'].forEach((txt, i) => {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'jackpot-text';
+      const ox = (i - 1) * 55;
+      el.textContent = txt;
+      el.style.cssText = `left:${fromX + ox}px;top:${fromY - 240 - i*30}px;font-size:${28 + i*4}px;animation-duration:.9s;animation-delay:0s;`;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1000);
+    }, 350 + i * 160);
+  });
+}
+
+function launchJRocket(fx, fy, tx, ty, color, delay) {
+  setTimeout(() => {
+    const dx = tx - fx, dy = ty - fy;
+    const dur = .42 + Math.random() * .15;
+
+    // 로켓 본체
+    const rkt = document.createElement('div');
+    rkt.className = 'jrocket';
+    const sz = 7 + Math.random() * 4;
+    rkt.style.cssText = `left:${fx - sz/2}px;top:${fy - sz/2}px;width:${sz}px;height:${sz}px;background:${color};box-shadow:0 0 10px ${color},0 0 20px ${color};--jx:${dx}px;--jy:${dy}px;--jd:${dur}s;`;
+    document.body.appendChild(rkt);
+
+    // 꼬리 잔광
+    for (let t = 1; t <= 7; t++) {
+      const frac = t / 8;
+      setTimeout(() => {
+        const tr = document.createElement('div');
+        tr.className = 'jtail';
+        const tx2 = fx + dx * frac + (Math.random() - .5) * 5;
+        const ty2 = fy + dy * frac + (Math.random() - .5) * 5;
+        const tsz = sz * (.9 - frac * .5);
+        tr.style.cssText = `left:${tx2 - tsz/2}px;top:${ty2 - tsz/2}px;width:${tsz}px;height:${tsz}px;background:${color};box-shadow:0 0 6px ${color};`;
+        document.body.appendChild(tr);
+        setTimeout(() => tr.remove(), 380);
+      }, dur * 1000 * frac * .9);
+    }
+
+    // 폭발
+    setTimeout(() => {
+      rkt.remove();
+      jExplode(tx, ty, color);
+    }, dur * 1000);
+  }, delay);
+}
+
+function jExplode(cx, cy, mainColor) {
+  const BOOM_C = [mainColor, '#ffffff', '#f5c842', '#ff4081'];
+  const count  = 44;
+
+  // 링
+  [45, 90, 145, 200].forEach((sz, i) => {
+    const ring = document.createElement('div'); ring.className = 'burst-ring';
+    ring.style.cssText = `left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;border:${i < 2 ? 3 : 2}px solid ${BOOM_C[i % BOOM_C.length]};animation-duration:${.35 + i * .09}s;animation-delay:${i * .04}s;`;
+    document.body.appendChild(ring); setTimeout(() => ring.remove(), 800);
+  });
+
+  // 방사 파티클 (중력 추가)
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div'); p.className = 'jboom';
+    const angle = (Math.PI * 2 / count) * i + Math.random() * .18;
+    const dist  = 60 + Math.random() * 130;
+    const bx = Math.cos(angle) * dist;
+    const by = Math.sin(angle) * dist + 40 + Math.random() * 60; // 중력
+    const sz = 3 + Math.random() * 7;
+    const isRect = Math.random() > .45;
+    const col = BOOM_C[Math.floor(Math.random() * BOOM_C.length)];
+    const dur = .65 + Math.random() * .55;
+    p.style.cssText = `left:${cx - sz/2}px;top:${cy - sz/2}px;width:${sz}px;height:${isRect ? sz*2.2 : sz}px;border-radius:${isRect ? '2px' : '50%'};background:${col};box-shadow:0 0 3px ${col};--bx:${bx}px;--by:${by}px;--bd:${dur}s;--br:${Math.random()*1080-540}deg;animation-delay:${Math.random()*.03}s;`;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), (dur + .15) * 1000);
+  }
+
+  // 빛줄기 8방향
+  for (let i = 0; i < 8; i++) {
+    const ang = i * (Math.PI * 2 / 8);
+    const sl  = document.createElement('div');
+    sl.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:${35 + Math.random()*35}px;height:${2 + Math.random()*2}px;background:linear-gradient(90deg,${BOOM_C[i%BOOM_C.length]},transparent);transform:rotate(${ang * 180 / Math.PI}deg);transform-origin:left center;pointer-events:none;z-index:502;animation:sfx .4s ease-out forwards;--sx:${Math.cos(ang)*40}px;--sy:${Math.sin(ang)*40}px;--sd:.4s;--se:ease-out;--sr:0deg;`;
+    document.body.appendChild(sl); setTimeout(() => sl.remove(), 500);
+  }
+}
+
+/* ─── 데이터 관리 ─── */
+function addName() {
+  const input = document.getElementById('nameInput');
+  const text  = input.value.trim();
+  if (!text)                { showToast('이름을 입력하세요!'); return; }
+  if (names.includes(text)) { showToast('이미 있는 이름이에요!'); return; }
+  if (names.length >= MAX)  { showToast(`최대 ${MAX}명까지 가능해요!`); return; }
+  names.push(text); input.value = '';
+  renderNames(); if (!isRunning) { ladder = null; stepIdx=0; allPaths=[]; completedPaths=[]; stepResults=[]; usePrizesGlobal=[]; resizeCanvas(); const nn=Math.min(names.length,prizes.length); updateBtnLabel(nn,0); }
+  showToast(`"${text}" 추가됨`);
+}
+function deleteName(idx) {
+  names.splice(idx, 1); renderNames();
+  if (!isRunning) { ladder = null; stepIdx=0; allPaths=[]; completedPaths=[]; stepResults=[]; usePrizesGlobal=[]; resizeCanvas(); const nn=Math.min(names.length,prizes.length); updateBtnLabel(nn,0); }
+}
+function renderNames() {
+  const list  = document.getElementById('nameList');
+  const badge = document.getElementById('nameCount');
+  badge.textContent = `${names.length}/${MAX}`;
+  if (!names.length) { list.innerHTML = '<div class="mini-empty">이름을 추가하세요</div>'; return; }
+  list.innerHTML = names.map((n, i) => `
+    <div class="mini-item">
+      <div class="mini-dot" style="background:${NAME_COLORS[i%NAME_COLORS.length]}"></div>
+      <span class="mini-num">${i+1}</span>
+      <span class="mini-text">${n}</span>
+      <button class="mini-del" onclick="deleteName(${i})">×</button>
+    </div>`).join('');
+}
+
+function addPrize() {
+  const input = document.getElementById('prizeInput');
+  const text  = input.value.trim();
+  if (!text)                 { showToast('결과를 입력하세요!'); return; }
+  if (prizes.includes(text)) { showToast('이미 있는 결과예요!'); return; }
+  if (prizes.length >= MAX)  { showToast(`최대 ${MAX}개까지 가능해요!`); return; }
+  prizes.push(text); input.value = '';
+  renderPrizes(); if (!isRunning) { ladder = null; stepIdx=0; allPaths=[]; completedPaths=[]; stepResults=[]; usePrizesGlobal=[]; resizeCanvas(); const nn=Math.min(names.length,prizes.length); updateBtnLabel(nn,0); }
+  showToast(`"${text}" 추가됨`);
+}
+function deletePrize(idx) {
+  prizes.splice(idx, 1); renderPrizes();
+  if (!isRunning) { ladder = null; stepIdx=0; allPaths=[]; completedPaths=[]; stepResults=[]; usePrizesGlobal=[]; resizeCanvas(); const nn=Math.min(names.length,prizes.length); updateBtnLabel(nn,0); }
+}
+function renderPrizes() {
+  const list  = document.getElementById('prizeList');
+  const badge = document.getElementById('prizeCount');
+  badge.textContent = `${prizes.length}/${MAX}`;
+  if (!prizes.length) { list.innerHTML = '<div class="mini-empty">결과를 추가하세요</div>'; return; }
+  list.innerHTML = prizes.map((p, i) => `
+    <div class="mini-item">
+      <div class="mini-dot" style="background:rgba(46,204,113,.5)"></div>
+      <span class="mini-num">${i+1}</span>
+      <span class="mini-text">${p}</span>
+      <button class="mini-del" onclick="deletePrize(${i})">×</button>
+    </div>`).join('');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+document.getElementById('nameInput').addEventListener('keydown',  e => { if (e.key === 'Enter') addName(); });
+document.getElementById('prizeInput').addEventListener('keydown', e => { if (e.key === 'Enter') addPrize(); });
+
+resizeCanvas(); renderNames(); renderPrizes(); updateBtnLabel(0, 0);
+</script>
+</body>
+</html>
