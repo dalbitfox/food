@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#080f1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>다트 픽커</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#080f1e;--surface:#111e35;--surface2:#1a2d4a;
+  --red:#e8354a;--gold:#f5c842;--text:#eef2ff;--text2:#7a90b8;
+  --gulim:'굴림','Gulim','돋움','Dotum',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Nanum Gothic',sans-serif;overflow:hidden;touch-action:manipulation;}
+body{display:flex;flex-direction:column;align-items:center;min-height:100dvh;position:relative;overflow:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(232,53,74,.06) 0%,transparent 60%),radial-gradient(ellipse at 20% 80%,rgba(245,200,66,.04) 0%,transparent 50%);pointer-events:none;z-index:0;}
+
+.header{width:100%;padding:14px 20px 2px;text-align:center;position:relative;z-index:10;}
+.header h1{font-family:'Bebas Neue',cursive;font-size:32px;letter-spacing:6px;color:var(--red);text-shadow:0 0 24px rgba(232,53,74,.5),2px 2px 0 rgba(0,0,0,.5);line-height:1;}
+.header p{font-size:11px;color:var(--text2);margin-top:2px;letter-spacing:.5px;}
+
+.main{flex:1;width:100%;display:flex;flex-direction:column;align-items:center;padding:8px 16px 12px;position:relative;z-index:10;gap:8px;overflow-y:auto;overflow-x:hidden;}
+
+/* 다트판 */
+.board-scene{position:relative;width:300px;height:320px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.board-scene::before{content:'';position:absolute;left:0;right:0;top:10px;bottom:10px;border-radius:50%;background:radial-gradient(circle,#2a1a0e 60%,#1a0f08 100%);box-shadow:0 0 0 6px #3d2510,0 0 0 8px #2a1a0e,0 8px 40px rgba(0,0,0,.7);z-index:0;}
+#dartBoard{position:relative;width:280px;height:280px;z-index:1;flex-shrink:0;}
+
+/* 던지기 버튼 */
+.throw-btn{width:100%;max-width:280px;height:50px;background:linear-gradient(135deg,#e8354a,#c0223a);border:none;border-radius:12px;color:#fff;font-family:var(--gulim);font-size:20px;font-weight:900;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 0 #8a1424,0 6px 20px rgba(232,53,74,.35);transform:translateY(0);transition:transform .1s,box-shadow .1s;flex-shrink:0;-webkit-tap-highlight-color:transparent;position:relative;overflow:hidden;}
+.throw-btn::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);animation:btn-shine 3s ease-in-out infinite;}
+@keyframes btn-shine{0%,100%{left:-100%}50%{left:150%}}
+.throw-btn:active,.throw-btn.pressing{transform:translateY(4px);box-shadow:0 0 0 #8a1424,0 2px 10px rgba(232,53,74,.3);}
+.throw-btn.disabled{opacity:.5;pointer-events:none;}
+
+/* 결과 */
+.result-area{width:100%;max-width:280px;min-height:56px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.result-placeholder{font-size:12px;color:var(--text2);text-align:center;letter-spacing:.5px;}
+.result-card{width:100%;background:var(--surface);border:1.5px solid rgba(232,53,74,.35);border-radius:14px;padding:11px 18px;text-align:center;display:none;animation:pop-in .4s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;}
+.result-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(232,53,74,.07) 0%,transparent 70%);pointer-events:none;}
+@keyframes pop-in{from{opacity:0;transform:scale(.7) rotate(-4deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+.r-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:3px;}
+.r-name{font-family:var(--gulim);font-size:24px;font-weight:900;letter-spacing:1px;color:var(--gold);text-shadow:0 0 16px rgba(245,200,66,.5);}
+
+/* 목록 섹션 */
+.section{width:100%;max-width:280px;flex-shrink:0;}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+.section-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:2px;}
+.count-badge{background:var(--surface2);color:var(--text2);font-size:11px;padding:2px 8px;border-radius:20px;}
+.item-list{display:flex;flex-direction:column;gap:4px;max-height:150px;overflow-y:auto;padding-right:2px;}
+.item-list::-webkit-scrollbar{width:3px;}
+.item-list::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:10px;}
+.list-item{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:9px;padding:7px 10px;animation:slideIn .25s ease;transition:border-color .2s;}
+.list-item:hover{border-color:rgba(232,53,74,.25);}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.item-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.item-text{flex:1;font-size:13px;font-weight:700;}
+.item-del{background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:0 3px;line-height:1;transition:color .2s;-webkit-tap-highlight-color:transparent;}
+.item-del:active{color:var(--red);}
+.empty-state{text-align:center;padding:14px;color:var(--text2);font-size:12px;}
+.empty-state span{display:block;font-size:26px;margin-bottom:6px;}
+
+/* 추가 폼 */
+.add-form{width:100%;max-width:280px;display:flex;gap:8px;flex-shrink:0;padding-bottom:14px;}
+.add-input{flex:1;background:var(--surface);border:1.5px solid rgba(255,255,255,.08);border-radius:10px;color:var(--text);font-family:'Nanum Gothic',sans-serif;font-size:14px;padding:10px 12px;outline:none;transition:border-color .2s;}
+.add-input:focus{border-color:rgba(232,53,74,.5);}
+.add-input::placeholder{color:var(--text2);}
+.add-btn{background:linear-gradient(135deg,#e8354a,#c0223a);border:none;border-radius:10px;color:#fff;font-family:'Bebas Neue',cursive;font-size:22px;width:44px;height:44px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.add-btn:active{transform:scale(.9);}
+
+/* 토스트 */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid rgba(255,255,255,.1);color:var(--text);padding:9px 18px;border-radius:30px;font-size:13px;font-weight:700;transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:300;white-space:nowrap;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* 파티클 */
+.spark{position:fixed;pointer-events:none;z-index:500;border-radius:50%;animation:spark-fly var(--sd,1s) var(--se,ease-out) forwards;}
+@keyframes spark-fly{0%{transform:translate(0,0) scale(1) rotate(0deg);opacity:1}80%{opacity:1}100%{transform:translate(var(--sx),var(--sy)) scale(.1) rotate(var(--sr,0deg));opacity:0}}
+.burst-ring{position:fixed;border-radius:50%;pointer-events:none;z-index:499;animation:ring-out .6s ease-out forwards;}
+@keyframes ring-out{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+.impact-wave{position:absolute;border-radius:50%;pointer-events:none;z-index:20;animation:impact-out .4s ease-out forwards;}
+@keyframes impact-out{0%{transform:translate(-50%,-50%) scale(0);opacity:.8}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+.dart-stuck{position:absolute;width:10px;height:10px;border-radius:50%;background:#e0e0e0;z-index:15;transform:translate(-50%,-50%);box-shadow:0 0 12px rgba(255,255,255,.8);animation:dart-appear .2s ease-out;}
+@keyframes dart-appear{from{transform:translate(-50%,-50%) scale(0)}to{transform:translate(-50%,-50%) scale(1)}}
+/* 폭죽 로켓 (아래→위 발사) */
+.rocket{position:fixed;pointer-events:none;z-index:498;border-radius:50%;animation:rocket-up var(--rd,.6s) cubic-bezier(.2,.8,.4,1) forwards;}
+@keyframes rocket-up{
+  0%  {transform:translate(0,0) scale(1);opacity:1;}
+  80% {transform:translate(var(--rx),var(--ry)) scale(.6);opacity:.9;}
+  100%{transform:translate(var(--rx),var(--ry)) scale(0);opacity:0;}
+}
+/* 폭죽 꼬리 잔광 */
+.trail{position:fixed;pointer-events:none;z-index:497;border-radius:50%;animation:trail-fade var(--td,.4s) ease-out forwards;}
+@keyframes trail-fade{0%{opacity:.7;transform:scale(1);}100%{opacity:0;transform:scale(.1);}}
+/* 터짐 파티클 (방사형 + 중력) */
+.boom{position:fixed;pointer-events:none;z-index:499;animation:boom-fly var(--bd,.9s) cubic-bezier(.1,.6,.3,1) forwards;}
+@keyframes boom-fly{
+  0%  {transform:translate(0,0) scale(1.2) rotate(0deg);opacity:1;}
+  60% {opacity:1;}
+  100%{transform:translate(var(--bx),var(--by)) scale(.15) rotate(var(--br,0deg));opacity:0;}
+}
+/* 성형 빛줄기 */
+.starburst{position:fixed;pointer-events:none;z-index:498;transform-origin:left center;animation:star-shoot var(--ss,.5s) ease-out forwards;}
+@keyframes star-shoot{0%{opacity:1;transform:scaleX(1);}100%{opacity:0;transform:scaleX(3) translateX(30px);}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🎯 DART PICKER</h1>
+  <p>선택지를 추가하고 다트를 던져 결정하세요!</p>
+</div>
+<div class="main">
+  <div class="board-scene" id="boardScene">
+    <canvas id="dartBoard" width="280" height="280"></canvas>
+  </div>
+  <button class="throw-btn" id="throwBtn" onclick="throwDart()">
+    <span>🎯</span> 쏘세요!
+  </button>
+  <div class="result-area">
+    <div class="result-placeholder" id="resultPlaceholder">선택지를 추가하고 다트를 던지세요!</div>
+    <div class="result-card" id="resultCard">
+      <div class="r-label">선택 결과</div>
+      <div class="r-name" id="resultName"></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">선택 목록</span>
+      <span class="count-badge" id="countBadge">0개</span>
+    </div>
+    <div class="item-list" id="itemList">
+      <div class="empty-state"><span>🎯</span>선택지를 추가해보세요!</div>
+    </div>
+  </div>
+  <div class="add-form">
+    <input class="add-input" id="addInput" type="text" placeholder="선택지 입력..." maxlength="20">
+    <button class="add-btn" onclick="addItem()">+</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS=['#e8354a','#ff914d','#f5c842','#2ecc71','#3a86ff','#9b59b6','#e91e8c','#00bcd4','#ff5722','#8bc34a','#ff4081','#26c6da','#ffab40','#ab47bc','#29b6f6','#66bb6a'];
+const FW=['#f5c842','#e8354a','#3a86ff','#2ecc71','#ff914d','#9b59b6','#00bcd4','#ff4081','#fff','#ffab40','#66bb6a','#29b6f6'];
+
+let items=[], isAnimating=false, currentAngle=0, animFrameId=null;
+
+const canvas=document.getElementById('dartBoard');
+const ctx=canvas.getContext('2d');
+const CX=canvas.width/2, CY=canvas.height/2, R=CX-6;
+
+function getColor(i){return COLORS[i%COLORS.length];}
+
+function shadeColor(hex,pct){
+  const n=parseInt(hex.replace('#',''),16);
+  const r=Math.min(255,Math.max(0,(n>>16)+pct));
+  const g=Math.min(255,Math.max(0,((n>>8)&0xff)+pct));
+  const b=Math.min(255,Math.max(0,(n&0xff)+pct));
+  return `rgb(${r},${g},${b})`;
+}
+
+function drawBoard(angle){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(items.length===0){
+    ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);
+    ctx.fillStyle='#1a2d4a';ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='rgba(120,144,184,.6)';ctx.font='bold 14px Nanum Gothic';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('선택지를 추가하세요',CX,CY);
+    return;
+  }
+  const n=items.length, arc=(Math.PI*2)/n;
+  for(let i=0;i<n;i++){
+    const sa=angle+i*arc, ea=sa+arc;
+    ctx.beginPath();ctx.moveTo(CX,CY);ctx.arc(CX,CY,R,sa,ea);ctx.closePath();
+    ctx.fillStyle=getColor(i);ctx.fill();
+    ctx.beginPath();ctx.moveTo(CX,CY);ctx.arc(CX,CY,R*.68,sa,ea);ctx.closePath();
+    ctx.fillStyle=shadeColor(getColor(i),-22);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.45)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(CX,CY);ctx.lineTo(CX+Math.cos(sa)*R,CY+Math.sin(sa)*R);ctx.stroke();
+    ctx.save();ctx.translate(CX,CY);ctx.rotate(sa+arc/2);ctx.textAlign='right';
+    const name=items[i].text, textR=R-14;
+    const fs=n<=6?13:n<=10?11:9;
+    ctx.font=`bold ${fs}px Nanum Gothic`;
+    ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillText(name.length>8?name.slice(0,8)+'…':name,textR+1,1);
+    ctx.fillStyle='white';ctx.fillText(name.length>8?name.slice(0,8)+'…':name,textR,0);
+    ctx.restore();
+  }
+  // 링
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,.6)';ctx.lineWidth=3;ctx.stroke();
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.arc(CX,CY,R*.68,0,Math.PI*2);ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=2;ctx.stroke();
+  // 불스아이
+  ctx.beginPath();ctx.arc(CX,CY,22,0,Math.PI*2);ctx.fillStyle='#1a0a0a';ctx.fill();
+  ctx.beginPath();ctx.arc(CX,CY,12,0,Math.PI*2);ctx.fillStyle='#e8354a';ctx.fill();
+  ctx.beginPath();ctx.arc(CX,CY,5,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  // 포인터
+  ctx.save();ctx.translate(CX,0);
+  ctx.beginPath();ctx.moveTo(0,7);ctx.lineTo(-11,-5);ctx.lineTo(11,-5);ctx.closePath();
+  ctx.fillStyle='#f5c842';ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+/* ── 던지기 메인 로직 ──
+   1. THROW 버튼 → 다트 즉시 발사 + 판 동시 회전 시작
+   2. 다트가 판에 꽂힘 (발사 후 ~0.4초)
+   3. 판이 서서히 감속 → 멈춤 (총 ~4초)
+   4. 판 멈추면 결과 표시 + 폭죽 대폭발
+*/
+function throwDart(){
+  if(isAnimating) return;
+  if(items.length<2){showToast('선택지를 2개 이상 추가해주세요!');return;}
+
+  isAnimating=true;
+  document.getElementById('throwBtn').classList.add('disabled');
+  document.getElementById('resultCard').style.display='none';
+  document.getElementById('resultPlaceholder').style.display='block';
+  document.getElementById('resultPlaceholder').textContent='🎯 다트 발사!';
+  document.querySelectorAll('.dart-stuck').forEach(d=>d.remove());
+
+  // 당첨 미리 결정
+  const winIdx=Math.floor(Math.random()*items.length);
+  const n=items.length, arc=(Math.PI*2)/n;
+
+  // 판이 멈출 최종 각도: winIdx 슬라이스 중앙이 12시(-π/2)에 오도록
+  const sliceOffset=(Math.random()-.5)*arc*.5; // 살짝 랜덤 편차
+  const targetCenter=-Math.PI/2-(winIdx+.5)*arc+sliceOffset;
+  const laps=Math.PI*2*(8+Math.floor(Math.random()*4));
+  const diff=((targetCenter-currentAngle)%(Math.PI*2)+Math.PI*2)%(Math.PI*2);
+  const totalRot=laps+diff;
+
+  const spinDur=4200+Math.random()*600;
+  const startAngle=currentAngle;
+  const spinStart=performance.now();
+
+  function easeOutQuint(t){return 1-Math.pow(1-t,5);}
+
+  // 판 회전 애니메이션
+  function spinAnim(now){
+    const elapsed=now-spinStart;
+    const progress=Math.min(elapsed/spinDur,1);
+    currentAngle=startAngle+totalRot*easeOutQuint(progress);
+    drawBoard(currentAngle);
+    if(progress<1){
+      animFrameId=requestAnimationFrame(spinAnim);
+    } else {
+      onSpinStop(winIdx);
+    }
+  }
+  requestAnimationFrame(spinAnim);
+
+  // 다트 발사 (판과 동시 - 약간의 딜레이)
+  setTimeout(()=>launchDartFly(winIdx),150);
+}
+
+function launchDartFly(winIdx){
+  const scene=document.getElementById('boardScene');
+  const sr=scene.getBoundingClientRect();
+  // 다트는 판의 12시 방향으로 날아감 (포인터 위치)
+  const targetX=sr.left+sr.width/2;
+  const targetY=sr.top+sr.height*0.10;
+
+  const startX=window.innerWidth+80;
+  const startY=targetY-5;
+
+  const dart=document.createElement('div');
+  dart.id='flyingDart';
+  dart.style.cssText=`position:fixed;left:${startX}px;top:${startY}px;width:110px;height:22px;z-index:200;pointer-events:none;transform-origin:left center;`;
+  dart.innerHTML=`<svg width="110" height="22" viewBox="0 0 110 22">
+    <!-- 꼬리 날개 위 -->
+    <polygon points="110,3 88,0 88,11" fill="#e8354a"/>
+    <!-- 꼬리 날개 아래 -->
+    <polygon points="110,19 88,11 88,22" fill="#c0223a"/>
+    <!-- 몸통 -->
+    <rect x="18" y="7" width="72" height="8" rx="3" fill="#c8a96e"/>
+    <!-- 몸통 하이라이트 -->
+    <rect x="18" y="7" width="72" height="3" rx="2" fill="rgba(255,255,255,.35)"/>
+    <!-- 배럴 (앞부분 금속) -->
+    <rect x="14" y="8" width="14" height="6" rx="2" fill="#a08060"/>
+    <!-- 팁 -->
+    <polygon points="0,11 18,7 18,15" fill="#e8e8e8"/>
+    <polygon points="0,11 5,9 5,13" fill="#cccccc"/>
+  </svg>`;
+  document.body.appendChild(dart);
+
+  const dx=targetX-startX, dy=targetY-startY;
+  const angle=Math.atan2(dy,dx)*180/Math.PI;
+  dart.style.transform=`rotate(${angle}deg)`;
+
+  const dur=380, t0=performance.now();
+  function fly(now){
+    const t=Math.min((now-t0)/dur,1);
+    const e=1-Math.pow(1-t,2.5);
+    dart.style.left=(startX+dx*e)+'px';
+    dart.style.top=(startY+dy*e)+'px';
+    if(t<1){requestAnimationFrame(fly);}
+    else{dart.remove();onDartStick(targetX,targetY,scene,sr);}
+  }
+  requestAnimationFrame(fly);
+}
+
+function onDartStick(sx,sy,scene,sr){
+  // 충격파
+  const wave=document.createElement('div');
+  wave.className='impact-wave';
+  const rx=((sx-sr.left)/sr.width*100), ry=((sy-sr.top)/sr.height*100);
+  wave.style.cssText=`left:${rx}%;top:${ry}%;width:70px;height:70px;border:3px solid rgba(255,255,255,.85);`;
+  scene.appendChild(wave);
+  setTimeout(()=>wave.remove(),500);
+
+  // 꽂힌 다트 점
+  const stuck=document.createElement('div');
+  stuck.className='dart-stuck';
+  stuck.style.left=rx+'%';
+  stuck.style.top=ry+'%';
+  scene.appendChild(stuck);
+
+  document.getElementById('resultPlaceholder').textContent='⏳ 판이 멈추는 중...';
+
+  // 소규모 스파크 (충돌 이펙트)
+  fireworks(sx,sy,14);
+}
+
+function onSpinStop(winIdx){
+  const scene=document.getElementById('boardScene');
+  const sr=scene.getBoundingClientRect();
+  const cx=sr.left+sr.width/2, cy=sr.top+sr.height/2;
+
+  // 대폭발 순서
+  setTimeout(()=>{fireworks(cx,cy,36);bigBurst(cx,cy);},0);
+  setTimeout(()=>grandFinale(),100);
+  setTimeout(()=>{fireworks(sr.left+30,sr.top+30,20);fireworks(sr.right-30,sr.top+30,20);},200);
+  setTimeout(()=>{
+    fireworks(window.innerWidth*.12,window.innerHeight*.35,18);
+    fireworks(window.innerWidth*.88,window.innerHeight*.35,18);
+    fireworks(window.innerWidth*.5,window.innerHeight*.1,24);
+  },380);
+  setTimeout(()=>{
+    bigBurst(window.innerWidth*.25,window.innerHeight*.4);
+    bigBurst(window.innerWidth*.75,window.innerHeight*.4);
+    fireworks(window.innerWidth*.5,window.innerHeight*.55,20);
+  },600);
+  setTimeout(()=>{
+    fireworks(window.innerWidth*.15,window.innerHeight*.65,16);
+    fireworks(window.innerWidth*.85,window.innerHeight*.65,16);
+    bigBurst(cx,cy);
+  },850);
+  
+
+  setTimeout(()=>showResult(winIdx),180);
+}
+
+/* 폭죽 */
+function fireworks(cx,cy,count=28){
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');
+    p.className='spark';
+    const a=(Math.PI*2/count)*i+Math.random()*.3;
+    const d=55+Math.random()*110;
+    const size=4+Math.random()*7;
+    const col=FW[Math.floor(Math.random()*FW.length)];
+    const dur=.55+Math.random()*.55;
+    p.style.cssText=`left:${cx-size/2}px;top:${cy-size/2}px;width:${size}px;height:${size}px;background:${col};--sx:${Math.cos(a)*d}px;--sy:${Math.sin(a)*d}px;--sd:${dur}s;--se:cubic-bezier(.2,.8,.5,1);--sr:${Math.random()*720-360}deg;animation-delay:${Math.random()*.05}s;`;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),(dur+.15)*1000);
+  }
+}
+function bigBurst(cx,cy){
+  [70,130,190].forEach((size,i)=>{
+    const ring=document.createElement('div');ring.className='burst-ring';
+    const col=FW[i*3%FW.length];
+    ring.style.cssText=`left:${cx}px;top:${cy}px;width:${size}px;height:${size}px;border:3px solid ${col};animation-duration:${.5+i*.12}s;animation-delay:${i*.07}s;`;
+    document.body.appendChild(ring);setTimeout(()=>ring.remove(),900+i*120);
+  });
+}
+/* ── 폭죽 로켓 발사 + 공중 폭발 ── */
+function launchRocket(fromX, fromY, targetX, targetY, color, delay){
+  setTimeout(()=>{
+    const W=window.innerWidth, H=window.innerHeight;
+    const dx=targetX-fromX, dy=targetY-fromY;
+    const dur=.45+Math.random()*.2;
+
+    // 로켓 발사체
+    const rkt=document.createElement('div');
+    rkt.className='rocket';
+    const sz=6+Math.random()*4;
+    rkt.style.cssText=`left:${fromX}px;top:${fromY}px;width:${sz}px;height:${sz}px;background:${color};box-shadow:0 0 8px ${color};--rx:${dx}px;--ry:${dy}px;--rd:${dur}s;`;
+    document.body.appendChild(rkt);
+
+    // 꼬리 잔광 (로켓 경로 중간중간)
+    for(let t=0;t<6;t++){
+      const frac=(t+1)/7;
+      setTimeout(()=>{
+        const tr=document.createElement('div');
+        tr.className='trail';
+        const tx=fromX+dx*frac+(Math.random()-0.5)*6;
+        const ty=fromY+dy*frac+(Math.random()-0.5)*6;
+        const tsz=sz*(.8-frac*.4);
+        tr.style.cssText=`left:${tx}px;top:${ty}px;width:${tsz}px;height:${tsz}px;background:${color};box-shadow:0 0 5px ${color};--td:.3s;`;
+        document.body.appendChild(tr);
+        setTimeout(()=>tr.remove(),400);
+      }, dur*1000*frac*0.85);
+    }
+
+    // 폭발 (로켓 도달 시)
+    setTimeout(()=>{
+      rkt.remove();
+      explode(targetX, targetY, color);
+    }, dur*1000);
+  }, delay);
+}
+
+function explode(cx, cy, mainColor){
+  const BOOM_COLORS=[mainColor, '#ffffff', FW[Math.floor(Math.random()*FW.length)], FW[Math.floor(Math.random()*FW.length)]];
+  const count=40+Math.floor(Math.random()*20);
+
+  // 링 이펙트
+  [50,100,160,220].forEach((sz,i)=>{
+    const ring=document.createElement('div');ring.className='burst-ring';
+    ring.style.cssText=`left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;border:${i<2?3:2}px solid ${BOOM_COLORS[i%BOOM_COLORS.length]};animation-duration:${.4+i*.1}s;animation-delay:${i*.05}s;`;
+    document.body.appendChild(ring);setTimeout(()=>ring.remove(),900);
+  });
+
+  // 방사형 파티클
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');p.className='boom';
+    const angle=(Math.PI*2/count)*i + Math.random()*.2;
+    const dist=80+Math.random()*140;
+    // 중력 적용: y방향에 +50~120px 추가 낙하
+    const bx=Math.cos(angle)*dist;
+    const by=Math.sin(angle)*dist + (50+Math.random()*80);
+    const sz=3+Math.random()*8;
+    const col=BOOM_COLORS[Math.floor(Math.random()*BOOM_COLORS.length)];
+    const dur=.7+Math.random()*.6;
+    const isRect=Math.random()>.5;
+    p.style.cssText=`left:${cx-sz/2}px;top:${cy-sz/2}px;width:${sz}px;height:${isRect?sz*2.5:sz}px;border-radius:${isRect?'2px':'50%'};background:${col};box-shadow:0 0 4px ${col};--bx:${bx}px;--by:${by}px;--bd:${dur}s;--br:${Math.random()*1080-540}deg;animation-delay:${Math.random()*.04}s;`;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),(dur+.15)*1000);
+  }
+
+  // 성형 빛줄기 (8방향)
+  for(let i=0;i<8;i++){
+    const sl=document.createElement('div');sl.className='starburst';
+    const ang=i*(Math.PI*2/8);
+    const len=30+Math.random()*40;
+    const col=BOOM_COLORS[i%BOOM_COLORS.length];
+    const tx=cx+Math.cos(ang)*10, ty=cy+Math.sin(ang)*10;
+    sl.style.cssText=`left:${tx}px;top:${ty}px;width:${len}px;height:${2+Math.random()*3}px;background:linear-gradient(90deg,${col},transparent);transform:rotate(${ang*180/Math.PI}deg);transform-origin:left center;--ss:${.3+Math.random()*.2}s;`;
+    document.body.appendChild(sl);setTimeout(()=>sl.remove(),600);
+  }
+}
+
+function grandFinale(){
+  const W=window.innerWidth, H=window.innerHeight;
+  // 발사 지점들: 화면 하단 여러 곳
+  const launches=[
+    {fx:W*.15, fy:H,    tx:W*.25, ty:H*.15},
+    {fx:W*.85, fy:H,    tx:W*.75, ty:H*.15},
+    {fx:W*.5,  fy:H,    tx:W*.5,  ty:H*.08},
+    {fx:W*.3,  fy:H,    tx:W*.2,  ty:H*.25},
+    {fx:W*.7,  fy:H,    tx:W*.8,  ty:H*.25},
+    {fx:W*.1,  fy:H*.8, tx:W*.15, ty:H*.35},
+    {fx:W*.9,  fy:H*.8, tx:W*.85, ty:H*.35},
+    {fx:W*.5,  fy:H,    tx:W*.35, ty:H*.2 },
+    {fx:W*.5,  fy:H,    tx:W*.65, ty:H*.2 },
+    {fx:W*.25, fy:H,    tx:W*.4,  ty:H*.1 },
+    {fx:W*.75, fy:H,    tx:W*.6,  ty:H*.1 },
+    {fx:W*.5,  fy:H*.9, tx:W*.5,  ty:H*.3 },
+  ];
+
+  // 1파 (즉시)
+  launches.slice(0,6).forEach((l,i)=>{
+    const col=FW[Math.floor(Math.random()*FW.length)];
+    launchRocket(l.fx,l.fy,l.tx,l.ty,col, i*80);
+  });
+  // 2파 (+500ms)
+  launches.slice(6,9).forEach((l,i)=>{
+    const col=FW[Math.floor(Math.random()*FW.length)];
+    launchRocket(l.fx,l.fy,l.tx,l.ty,col, 500+i*100);
+  });
+  // 3파 (+1000ms) - 클라이맥스
+  launches.slice(9).forEach((l,i)=>{
+    const col=FW[Math.floor(Math.random()*FW.length)];
+    launchRocket(l.fx,l.fy,l.tx,l.ty,col, 1000+i*120);
+  });
+  // 보너스: 중앙 연속 폭발
+  setTimeout(()=>{
+    explode(W*.5, H*.2, '#f5c842');
+    explode(W*.3, H*.3, '#e8354a');
+    explode(W*.7, H*.3, '#3a86ff');
+  }, 1350);
+  setTimeout(()=>{
+    explode(W*.5, H*.15, '#ffffff');
+    explode(W*.2, H*.25, '#2ecc71');
+    explode(W*.8, H*.25, '#ff914d');
+  }, 1700);
+}
+
+function showResult(winIdx){
+  const winner=items[winIdx];
+  document.getElementById('resultPlaceholder').style.display='none';
+  const card=document.getElementById('resultCard');
+  const nameEl=document.getElementById('resultName');
+  nameEl.textContent=winner.text;
+  nameEl.style.color=winner.color;
+  nameEl.style.textShadow=`0 0 20px ${winner.color}99`;
+  card.style.display='block';
+  card.style.animation='none';void card.offsetWidth;card.style.animation='';
+  card.style.borderColor=winner.color+'55';
+  showToast(`🎯 "${winner.text}" 당첨!`);
+  isAnimating=false;
+  document.getElementById('throwBtn').classList.remove('disabled');
+}
+
+function addItem(){
+  const input=document.getElementById('addInput');
+  const text=input.value.trim();
+  if(!text){showToast('선택지를 입력하세요!');return;}
+  if(items.find(i=>i.text===text)){showToast('이미 있는 선택지예요!');return;}
+  if(items.length>=16){showToast('최대 16개까지 가능해요!');return;}
+  items.push({text,color:getColor(items.length)});
+  input.value='';renderAll();showToast(`"${text}" 추가됨!`);
+}
+function deleteItem(idx){
+  const name=items[idx].text;
+  items.splice(idx,1);
+  items.forEach((item,i)=>{item.color=getColor(i);});
+  renderAll();
+  document.getElementById('resultCard').style.display='none';
+  document.getElementById('resultPlaceholder').style.display='block';
+  document.getElementById('resultPlaceholder').textContent='선택지를 추가하고 다트를 던지세요!';
+  showToast(`"${name}" 삭제됨`);
+}
+function renderAll(){renderList();drawBoard(currentAngle);}
+function renderList(){
+  const list=document.getElementById('itemList');
+  const badge=document.getElementById('countBadge');
+  badge.textContent=`${items.length}개`;
+  if(items.length===0){list.innerHTML='<div class="empty-state"><span>🎯</span>선택지를 추가해보세요!</div>';return;}
+  list.innerHTML=items.map((item,i)=>`
+    <div class="list-item">
+      <div class="item-dot" style="background:${item.color}"></div>
+      <span class="item-text">${item.text}</span>
+      <button class="item-del" onclick="deleteItem(${i})">×</button>
+    </div>`).join('');
+}
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+document.getElementById('addInput').addEventListener('keydown',e=>{if(e.key==='Enter')addItem();});
+drawBoard(currentAngle);renderList();
+</script>
+</body>
+</html>
